@@ -1,0 +1,75 @@
+<!-- # ===========================
+# 🐍 LOCAL VERSION (NO DOCKER)
+# ===========================
+
+# 0) Go to project folder (contains app.py, backend/, pages/, requirements.txt, .env, Dockerfile, etc.)
+cd path/to/agentic_rag_app
+
+# 1) Create & activate virtualenv
+# --- Windows (PowerShell)
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# --- Linux / macOS
+# python -m venv .venv
+# source .venv/bin/activate
+
+# 2) Install dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# 3) Create .env in the project root (if not already)
+# (Do this in a text editor; example content:)
+# OPENAI_API_KEY=sk-your-real-key-here
+
+# 4) Prepare data folders (example layout)
+# agentic_rag_app/
+#   data/
+#     folder1/
+#       file1.json
+#     folder2/
+#       file2.json
+#     folder3/
+#       file3.json
+
+# 5) Run the Streamlit app
+streamlit run app.py
+
+# Then open http://localhost:8501 in your browser.
+# In the UI:
+#   - Page 1 (Configuration): set LLM + embeddings + add folders (e.g. data/folder1, data/folder2...)
+#   - Page 2 (Vector DB Builder): click "Scan folders & Build Vector DB"
+#   - Page 3 (Chatbot Q&A): start asking questions -->
+
+
+<!-- 
+# ====================
+# 🐳 DOCKER VERSION
+# ====================
+
+# 0) Go to project folder
+cd path/to/agentic_rag_app
+
+# 1) Build Docker image
+docker build -t agentic-rag-app .
+
+# 2) Ensure .env exists in project root (example)
+# OPENAI_API_KEY=sk-your-real-key-here
+
+# 3) Prepare data on HOST (outside container), for example:
+# /path/on/host/legal_corpus/
+#   folder1/
+#   folder2/
+#   folder3/
+
+# 4) Run container, mounting host data into /data inside container
+docker run -p 8501:8501 \
+  --env-file .env \
+  -v /path/on/host/legal_corpus:/data \
+  agentic-rag-app
+
+# Then open http://localhost:8501 in your browser.
+# In the app:
+#   - Use folder paths like /data/folder1, /data/folder2, /data/folder3 in the Configuration page.
+#   - Build the vector DB in Vector DB Builder.
+#   - Chat in Chatbot Q&A. -->
