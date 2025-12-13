@@ -13,7 +13,7 @@ def get_config() -> RAGConfig:
     return st.session_state.config
 
 
-st.title("⚙️ Agent & RAG Configuration")
+st.title("Agent & RAG Configuration")
 
 config = get_config()
 

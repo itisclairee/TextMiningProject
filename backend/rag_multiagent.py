@@ -1,3 +1,4 @@
+'''
 # backend/rag_multiagent.py
 from __future__ import annotations
 
@@ -162,3 +163,182 @@ def multiagent_answer_question(
     show_reasoning: bool = False,
 ) -> Tuple[str, List[Document], Optional[str]]:
     return _multiagent_answer_question_core(question, config, show_reasoning)
+'''
+
+from __future__ import annotations
+
+from dataclasses import replace
+from typing import List, Tuple, Optional, Dict
+
+from langchain_core.documents import Document
+
+from .config import RAGConfig
+from .llm_provider import LLMBackend
+from .rag_single_agent import (
+    single_agent_answer_question,
+    build_db_registry,
+)
+
+# =====================================================================
+# Multi-agent system (high-level, semantic routing)
+# =====================================================================
+
+def multiagent_answer_question(
+    question: str,
+    config: RAGConfig,
+    show_reasoning: bool = False,
+) -> Tuple[str, List[Document], Optional[str]]:
+    """
+    Multi-agent RAG pipeline aligned with the high-level dataset abstraction.
+
+    - A supervisor reasons in terms of (Country × Content Type), not raw DB paths.
+    - Each selected dataset slice is handled by a specialized single-agent RAG.
+    - The supervisor synthesizes a final coherent answer.
+    """
+
+    supervisor_llm = LLMBackend(config)
+    registry = build_db_registry(config)
+
+    # -----------------------------------------------------------------
+    # Supervisor Thought: semantic routing decision
+    # -----------------------------------------------------------------
+
+    countries = sorted({s["country"] for s in registry})
+    content_types = sorted({s["content_type"] for s in registry})
+
+    system_prompt = (
+        "You are a supervisor agent in a multi-agent legal QA system.\n"
+        "Your task is to decide which specialized legal agents should be consulted.\n\n"
+        "Each specialized agent covers a specific combination of country and legal material.\n\n"
+        "Available countries: " + ", ".join(countries) + "\n"
+        "Available content types: " + ", ".join(content_types) + "\n\n"
+        "Return a JSON object with two keys:\n"
+        "- 'countries': list of countries to consult\n"
+        "- 'content_types': list of content types to consult"
+    )
+
+    user_prompt = f"Question:\n{question}"
+
+    raw = supervisor_llm.chat(system_prompt, user_prompt)
+
+    try:
+        parsed = json.loads(raw)
+        sel_countries = parsed.get("countries", [])
+        sel_types = parsed.get("content_types", [])
+    except Exception:
+        sel_countries = []
+        sel_types = []
+
+    routing_log = (
+        "Supervisor semantic routing decision:\n"
+        f"- Countries selected: {sel_countries}\n"
+        f"- Content types selected: {sel_types}"
+    )
+
+    # -----------------------------------------------------------------
+    # Map semantic decision to dataset slices (agents)
+    # -----------------------------------------------------------------
+
+    selected_slices = [
+        s for s in registry
+        if s["country"] in sel_countries and s["content_type"] in sel_types
+    ]
+
+    # -----------------------------------------------------------------
+    # If no specialized agents are selected, fallback to single-agent
+    # -----------------------------------------------------------------
+
+    if not selected_slices:
+        fallback_answer, fallback_docs, fallback_trace = (
+            single_agent_answer_question(question, config, show_reasoning)
+        )
+
+        reasoning_trace = None
+        if show_reasoning:
+            reasoning_trace = (
+                "**Multi-agent Supervisor**: No specialized agents were selected. "
+                "The system fell back to the single-agent RAG pipeline.\n\n"
+                + (fallback_trace or "")
+            )
+
+        return fallback_answer, fallback_docs, reasoning_trace
+
+    # -----------------------------------------------------------------
+    # Call each specialized agent (restricted to one dataset slice)
+    # -----------------------------------------------------------------
+
+    per_agent_answers: List[Tuple[str, str]] = []
+    all_docs: List[Document] = []
+    sub_traces: Dict[str, str] = {}
+
+    for slice_info in selected_slices:
+        local_cfg = replace(config)
+        local_cfg.vector_store_dirs = [slice_info["path"]]
+        local_cfg.vector_store_dir = slice_info["path"]
+
+        # Ensure sub-agents never recurse into multi-agent mode
+        if hasattr(local_cfg, "use_multiagent"):
+            local_cfg.use_multiagent = False
+
+        answer, docs, trace = single_agent_answer_question(
+            question, local_cfg, show_reasoning=True
+        )
+
+        agent_label = f"{slice_info['country']} / {slice_info['content_type']}"
+        per_agent_answers.append((agent_label, answer))
+        all_docs.extend(docs)
+
+        if trace:
+            sub_traces[agent_label] = trace
+
+    # -----------------------------------------------------------------
+    # Supervisor Answer: synthesis
+    # -----------------------------------------------------------------
+
+    agents_block = "\n\n".join(
+        f"[Agent: {label}]\n{ans}" for label, ans in per_agent_answers
+    )
+
+    system_prompt = (
+        "You are a supervisor agent synthesizing answers from multiple legal experts.\n"
+        "Each expert focused on a specific country and type of legal material.\n"
+        "Produce a single, coherent answer for the user.\n"
+        "If there are differences across jurisdictions, highlight them clearly."
+    )
+
+    user_prompt = (
+        f"User question:\n{question}\n\n"
+        f"Specialized agent answers:\n{agents_block}\n\n"
+        "Now provide a unified final answer."
+    )
+
+    final_answer = supervisor_llm.chat(system_prompt, user_prompt)
+
+    # -----------------------------------------------------------------
+    # Optional reasoning trace (high-level, exam-friendly)
+    # -----------------------------------------------------------------
+
+    reasoning_trace: Optional[str] = None
+    if show_reasoning:
+        agent_summaries = []
+        for label, ans in per_agent_answers:
+            snippet = ans[:300] + ("..." if len(ans) > 300 else "")
+            agent_summaries.append(
+                f"- **Agent {label}** answered (excerpt): {snippet}"
+            )
+
+        reasoning_trace = (
+            "**Multi-agent Supervisor – Thought**: The system identified that the "
+            "question required consulting multiple specialized legal perspectives.\n\n"
+            "**Routing / Action**:\n"
+            f"{routing_log}\n\n"
+            "**Sub-agent outputs (summarized)**:\n"
+            + "\n".join(agent_summaries)
+        )
+
+        if sub_traces:
+            reasoning_trace += "\n\n**Sub-agent detailed traces**:"
+            for label, trace in sub_traces.items():
+                reasoning_trace += f"\n\n[Agent {label}]\n{trace}"
+
+    return final_answer, all_docs, reasoning_trace

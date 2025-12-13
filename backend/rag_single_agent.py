@@ -1,4 +1,4 @@
-# backend/rag_single_agent.py
+'''# backend/rag_single_agent.py
 from __future__ import annotations
 
 from typing import List, Tuple, Optional, Dict
@@ -45,7 +45,7 @@ def _similarity_rank_and_filter(
     top_k: int,
     min_sim: float = 0.1,
 ) -> Tuple[List[Document], str]:
-    """
+    
     Rank docs by cosine similarity and filter below min_sim.
     Returns (filtered_docs, log_string).
     """
@@ -401,3 +401,284 @@ def single_agent_answer_question(
     show_reasoning: bool = False,
 ) -> Tuple[str, List[Document], Optional[str]]:
     return _single_agent_answer_question_core(question, config, show_reasoning)
+'''
+
+from __future__ import annotations
+
+from typing import List, Tuple, Optional, Dict
+import json
+import numpy as np
+
+from langchain_core.documents import Document
+
+from .config import RAGConfig
+from .embeddings import get_embedding_model
+from .llm_provider import LLMBackend
+from .vector_store import load_vector_store
+from .rag_utils import _build_agent_config_log
+
+# =====================================================================
+# High-level dataset abstraction (Dataset Slice)
+# =====================================================================
+
+def build_db_registry(config: RAGConfig) -> List[Dict]:
+    """
+    High-level semantic registry of the dataset.
+    Each FAISS DB corresponds to a (Country × Content Type) slice.
+    """
+    base = config.vector_db_base_dir
+
+    return [
+        {
+            "db_name": "italy_divorce_codes",
+            "country": "Italy",
+            "content_type": "Divorce",
+            "description": "Italian Civil Code articles regulating divorce",
+            "path": f"{base}/italy/divorce_codes",
+        },
+        {
+            "db_name": "italy_inheritance_codes",
+            "country": "Italy",
+            "content_type": "Inheritance",
+            "description": "Italian Civil Code articles regulating inheritance",
+            "path": f"{base}/italy/inheritance_codes",
+        },
+        {
+            "db_name": "italy_past_cases",
+            "country": "Italy",
+            "content_type": "Past Cases",
+            "description": "Italian past legal cases",
+            "path": f"{base}/italy/past_cases",
+        },
+        {
+            "db_name": "estonia_divorce_codes",
+            "country": "Estonia",
+            "content_type": "Divorce",
+            "description": "Estonian family law provisions on divorce",
+            "path": f"{base}/estonia/divorce_codes",
+        },
+        {
+            "db_name": "estonia_inheritance_codes",
+            "country": "Estonia",
+            "content_type": "Inheritance",
+            "description": "Estonian law of succession",
+            "path": f"{base}/estonia/inheritance_codes",
+        },
+        {
+            "db_name": "estonia_past_cases",
+            "country": "Estonia",
+            "content_type": "Past Cases",
+            "description": "Estonian past legal cases",
+            "path": f"{base}/estonia/past_cases",
+        },
+        {
+            "db_name": "slovenia_divorce_codes",
+            "country": "Slovenia",
+            "content_type": "Divorce",
+            "description": "Slovenian family law provisions on divorce",
+            "path": f"{base}/slovenia/divorce_codes",
+        },
+        {
+            "db_name": "slovenia_inheritance_codes",
+            "country": "Slovenia",
+            "content_type": "Inheritance",
+            "description": "Slovenian inheritance law",
+            "path": f"{base}/slovenia/inheritance_codes",
+        },
+        {
+            "db_name": "slovenia_past_cases",
+            "country": "Slovenia",
+            "content_type": "Past Cases",
+            "description": "Slovenian past legal cases",
+            "path": f"{base}/slovenia/past_cases",
+        },
+    ]
+
+
+# =====================================================================
+# Thought step: do we need retrieval?
+# =====================================================================
+
+def decide_need_retrieval(question: str, llm: LLMBackend) -> Tuple[bool, str]:
+    system_prompt = (
+        "You are a classifier that decides whether answering a question requires "
+        "consulting legal documents or case law.\n"
+        "Answer ONLY with YES or NO."
+    )
+    user_prompt = f"Question:\n{question}"
+
+    resp = llm.chat(system_prompt, user_prompt).strip().lower()
+
+    if resp == "yes":
+        return True, "Thought: retrieval is necessary."
+    if resp == "no":
+        return False, "Thought: retrieval is not necessary."
+
+    return True, "Thought: ambiguous answer → defaulting to retrieval."
+
+
+# =====================================================================
+# Action step (semantic): decide which dataset slices are relevant
+# =====================================================================
+
+def decide_relevant_slices(
+    question: str,
+    registry: List[Dict],
+    llm: LLMBackend,
+) -> Tuple[List[str], List[str], str]:
+    """
+    Uses the LLM to decide which countries and content types are relevant.
+    Returns (countries, content_types, log).
+    """
+
+    countries = sorted({s["country"] for s in registry})
+    content_types = sorted({s["content_type"] for s in registry})
+
+    system_prompt = (
+        "You are a legal domain classifier.\n"
+        "Given a legal question, decide:\n"
+        "1) Which country or countries are relevant\n"
+        "2) Which type of legal material is needed\n\n"
+        "Possible countries: " + ", ".join(countries) + "\n"
+        "Possible content types: " + ", ".join(content_types) + "\n\n"
+        "Return a JSON object with keys 'countries' and 'content_types'."
+    )
+
+    user_prompt = f"Question:\n{question}"
+
+    raw = llm.chat(system_prompt, user_prompt)
+
+    try:
+        parsed = json.loads(raw)
+        sel_countries = parsed.get("countries", [])
+        sel_types = parsed.get("content_types", [])
+    except Exception:
+        sel_countries = []
+        sel_types = []
+
+    log = (
+        "Action (semantic selection):\n"
+        f"- Countries selected: {sel_countries}\n"
+        f"- Content types selected: {sel_types}"
+    )
+
+    return sel_countries, sel_types, log
+
+
+# =====================================================================
+# Action step (technical): map semantic selection to FAISS DBs
+# =====================================================================
+
+def map_slices_to_dbs(
+    registry: List[Dict],
+    countries: List[str],
+    content_types: List[str],
+) -> List[Dict]:
+    return [
+        s for s in registry
+        if s["country"] in countries and s["content_type"] in content_types
+    ]
+
+
+# =====================================================================
+# Retrieval + similarity filtering
+# =====================================================================
+
+def retrieve_from_slice(
+    question: str,
+    slice_info: Dict,
+    config: RAGConfig,
+    embedding_model,
+) -> List[Document]:
+
+    store = load_vector_store(slice_info["path"], embedding_model)
+    retriever = store.as_retriever(search_kwargs={"k": config.top_k * 3})
+    raw_docs = retriever.invoke(question)
+
+    if not raw_docs:
+        return []
+
+    q_vec = np.array(embedding_model.embed_query(question))
+    d_vecs = np.array(embedding_model.embed_documents([d.page_content for d in raw_docs]))
+
+    sims = (d_vecs @ q_vec) / (
+        np.linalg.norm(d_vecs, axis=1) * np.linalg.norm(q_vec) + 1e-8
+    )
+
+    ranked = sorted(
+        zip(raw_docs, sims), key=lambda x: x[1], reverse=True
+    )[: config.top_k]
+
+    docs = []
+    for d, s in ranked:
+        if s < 0.1:
+            continue
+        d.metadata = d.metadata or {}
+        d.metadata.update({
+            "country": slice_info["country"],
+            "content_type": slice_info["content_type"],
+            "db_name": slice_info["db_name"],
+        })
+        docs.append(d)
+
+    return docs
+
+
+# =====================================================================
+# Main single-agent pipeline (up to 4.2 fully compliant)
+# =====================================================================
+
+def single_agent_answer_question(
+    question: str,
+    config: RAGConfig,
+    show_reasoning: bool = False,
+) -> Tuple[str, List[Document], Optional[str]]:
+
+    llm = LLMBackend(config)
+    registry = build_db_registry(config)
+
+    # ---- Thought ----
+    need_retrieval, thought_log = decide_need_retrieval(question, llm)
+
+    retrieved_docs: List[Document] = []
+    reasoning_trace = None
+
+    # ---- Action ----
+    if need_retrieval:
+        countries, types, semantic_log = decide_relevant_slices(
+            question, registry, llm
+        )
+
+        selected_slices = map_slices_to_dbs(registry, countries, types)
+
+        embedding_model = get_embedding_model(config)
+
+        for s in selected_slices:
+            retrieved_docs.extend(
+                retrieve_from_slice(question, s, config, embedding_model)
+            )
+
+    # ---- Answer ----
+    context = "\n\n".join(d.page_content for d in retrieved_docs)
+
+    system_prompt = (
+        "You are a legal assistant. "
+        "If legal documents are provided, use them as authoritative sources."
+    )
+
+    user_prompt = f"Question:\n{question}"
+    if context:
+        user_prompt += f"\n\nContext:\n{context}"
+
+    answer = llm.chat(system_prompt, user_prompt)
+
+    # ---- Optional reasoning trace ----
+    if show_reasoning:
+        reasoning_trace = (
+            f"**Thought**: {thought_log}\n\n"
+            f"**Action**:\n{semantic_log if need_retrieval else 'No retrieval performed.'}\n\n"
+            f"**Agent configuration**:\n"
+            f"```text\n{_build_agent_config_log(config, {s['db_name']: s['path'] for s in registry})}\n```"
+        )
+
+    return answer, retrieved_docs, reasoning_trace
