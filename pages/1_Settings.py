@@ -1,4 +1,4 @@
-# pages/1_Configuration.py
+# pages/1_Settings.py
 # Global configuration for the Agentic RAG app (OpenAI + HuggingFace)
 
 import streamlit as st
@@ -177,7 +177,7 @@ with col_r2:
     )
 
 # ---------------- AGENTIC MODE (within each RAG agent) ----------------
-st.subheader("Agentic RAG Reasoning Mode (per agent)")
+st.subheader("Agentic RAG Reasoning Mode")
 
 config.agentic_mode = st.radio(
     "Agentic mode",
@@ -194,7 +194,7 @@ config.agentic_mode = st.radio(
 
 
 # ---------------- MULTI-AGENT SUPERVISOR ----------------
-st.subheader("Multi-agent Supervisor (tool-calling)")
+st.subheader("Multi-agent Supervisor")
 
 config.use_multiagent = st.checkbox(
     "Enable multi-agent supervisor over specialized RAG agents",

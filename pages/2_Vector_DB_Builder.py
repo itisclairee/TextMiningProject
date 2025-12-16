@@ -56,7 +56,7 @@ config = get_config()
 os.makedirs(BASE_VECTOR_DIR, exist_ok=True)
 
 if not config.json_folders:
-    st.warning("No JSON folders configured. Go to the **Configuration** page first.")
+    st.warning("No JSON folders configured. Go to the **Settings** page first.")
     st.stop()
 
 # ---------------- SHOW CONFIGURED JSON FOLDERS ----------------

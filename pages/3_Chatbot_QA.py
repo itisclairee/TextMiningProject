@@ -184,3 +184,34 @@ if user_input:
         assistant_msg["extracted_metadata"] = extracted_meta
 
     st.session_state.chat_history.append(assistant_msg)
+
+
+
+# -------------------------------
+# Custom CSS per badge messaggi
+# -------------------------------
+st.markdown("""
+<style>
+/* Badge dell'utente */
+div[role="listitem"] > div > div:first-child {
+    background-color: lightblue !important;
+    color: white !important;
+    border-radius: 0.5rem !important;
+}
+
+/* Badge dell'assistente */
+div[role="listitem"] > div > div:last-child {
+    background-color: green !important;
+    color: white !important;
+    border-radius: 0.5rem !important;
+}
+            #agentic-hybrid-rag-chatbot {
+position: fixed!important;
+background: white;
+z-index: 999999;
+top: 20px;
+width: 100%;
+}
+</style>
+            
+""", unsafe_allow_html=True)
