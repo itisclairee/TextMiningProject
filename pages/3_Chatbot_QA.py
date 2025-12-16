@@ -1,3 +1,4 @@
+# pages/3_Chatbot_QA.py
 from __future__ import annotations
 
 import json
@@ -64,7 +65,7 @@ def append_chat_to_db(history: List[Dict[str, Any]]) -> None:
 # -------------------------------
 # Streamlit UI
 # -------------------------------
-st.title("💬 Agentic / Hybrid RAG Chatbot")
+st.title("Agentic / Hybrid RAG Chatbot")
 
 config = get_config()
 
@@ -94,17 +95,28 @@ with col_top3:
 agentic_mode = getattr(config, "agentic_mode", "standard_rag")
 use_multiagent = getattr(config, "use_multiagent", False)
 
+# Definiamo 4 colonne
 col_opt1, col_opt2, col_opt3, col_opt4 = st.columns(4)
 
-show_react_trace = False
-if col_opt1 and agentic_mode == "react" and not use_multiagent:
-    show_react_trace = st.checkbox("Show ReAct trace", value=False)
-
-show_sources = col_opt2.checkbox("Show sources", value=True)
-show_retrieval_logs = col_opt3.checkbox("Show retrieval logs", value=False)
+# Se agent logs è presente, lo mettiamo nella prima colonna
 show_agent_logs = False
 if use_multiagent:
-    show_agent_logs = col_opt4.checkbox("Show agent logs", value=False)
+    show_agent_logs = col_opt1.checkbox("Show agent logs", value=False)
+    col_left1 = col_opt2
+    col_left2 = col_opt3
+    col_left3 = col_opt4
+else:
+    col_left1 = col_opt1
+    col_left2 = col_opt2
+    col_left3 = col_opt3
+
+# Le altre checkbox seguono
+show_sources = col_left1.checkbox("Show sources", value=True)
+show_retrieval_logs = col_left2.checkbox("Show retrieval logs", value=False)
+
+show_react_trace = False
+if col_left3 and agentic_mode == "react" and not use_multiagent:
+    show_react_trace = col_left3.checkbox("Show ReAct trace", value=False)
 
 
 # -------------------------------

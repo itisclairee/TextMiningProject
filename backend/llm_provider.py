@@ -12,23 +12,12 @@ from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 from .config import RAGConfig
 
 
-# Role of this module:
-# Abstracts away LLM details so all other modules call the same simple interface, regardless of provider or model.
-
-
 class LLMBackend:
     """
     Unified interface for LLM providers:
 
-      - openai       → ChatOpenAI
+      - openai       → OpenAI SDK (supports OpenRouter)
       - huggingface  → HuggingFaceEndpoint + ChatHuggingFace
-
-    Hugging Face notes:
-      - `llm_model_name` must be a valid repo id on HF
-        (e.g. `mistralai/Mistral-7B-Instruct-v0.3`) or a local path
-        if you later switch to local inference.
-      - For private/gated models you must set
-        HUGGINGFACEHUB_API_TOKEN (or HF_TOKEN) in your .env.
     """
 
     def __init__(self, config: RAGConfig):
@@ -37,53 +26,66 @@ class LLMBackend:
         self.temperature = 0.2
 
     # ------------------------------------------------------------------
-    # OPENAI
+    # OPENAI / OPENROUTER
     # ------------------------------------------------------------------
     def _build_openai_chat(self) -> BaseChatModel:
-        # Requires OPENAI_API_KEY in env
+        """
+        Uses OpenAI-compatible API.
+        Works with:
+          - OpenAI
+          - OpenRouter
+        """
         return ChatOpenAI(
             model=self.config.llm_model_name,
             temperature=self.temperature,
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            default_headers={
+                # Required by OpenRouter for leaderboard & analytics
+                "HTTP-Referer": os.getenv(
+                    "OPENROUTER_SITE_URL", "http://localhost"
+                ),
+                "X-Title": os.getenv(
+                    "OPENROUTER_APP_NAME", "RAG-App"
+                ),
+            },
         )
 
     # ------------------------------------------------------------------
-    # HUGGING FACE (Inference API via HuggingFaceEndpoint)
+    # HUGGING FACE (Inference API)
     # ------------------------------------------------------------------
     def _build_hf_chat(self) -> Optional[BaseChatModel]:
         repo_id = (self.config.llm_model_name or "").strip()
         if not repo_id:
-            print("[LLMBackend] Empty Hugging Face model name in config.")
+            print("[LLMBackend] Empty Hugging Face model name.")
             return None
 
-        # Token for HF Inference API (needed for many models, especially private/gated)
         hf_token = (
             os.getenv("HUGGINGFACEHUB_API_TOKEN")
             or os.getenv("HF_TOKEN")
         )
+
         if hf_token is None:
             print(
-                "[LLMBackend] HUGGINGFACEHUB_API_TOKEN/HF_TOKEN not set. "
-                "Public open models may still work, but private/gated ones will fail."
+                "[LLMBackend] HF token not set. "
+                "Public models may work, private/gated will fail."
             )
 
         try:
-            # Base HF LLM using Inference API
             base_llm = HuggingFaceEndpoint(
                 repo_id=repo_id,
                 task="text-generation",
                 max_new_tokens=self.max_new_tokens,
                 temperature=self.temperature,
-                # provider="auto",  # optional, HF chooses the backend
             )
-            # Chat wrapper with messages API
-            chat_llm = ChatHuggingFace(llm=base_llm)
-            return chat_llm
+            return ChatHuggingFace(llm=base_llm)
+
         except Exception as e:
-            print(f"[LLMBackend] Error creating Hugging Face model: {e}")
+            print(f"[LLMBackend] HF model error: {e}")
             return None
 
     # ------------------------------------------------------------------
-    # Factory
+    # FACTORY
     # ------------------------------------------------------------------
     def get_langchain_llm(self) -> Optional[BaseChatModel]:
         provider = self.config.llm_provider
@@ -94,41 +96,35 @@ class LLMBackend:
         if provider == "huggingface":
             return self._build_hf_chat()
 
+        print(f"[LLMBackend] Unknown provider: {provider}")
         return None
 
     # ------------------------------------------------------------------
-    # High-level chat method used by rag_pipeline
+    # HIGH-LEVEL CHAT API
     # ------------------------------------------------------------------
     def chat(self, system_prompt: str, user_prompt: str) -> str:
         llm = self.get_langchain_llm()
         if llm is None:
             return (
-                "LLM provider is not correctly configured or the model could not be "
-                "loaded.\n\n"
-                "Please check your Configuration page:\n"
-                "- If provider = **huggingface**, set `llm_model_name` to a valid "
-                "Hugging Face repo id (e.g. `mistralai/Mistral-7B-Instruct-v0.3`) and "
-                "set `HUGGINGFACEHUB_API_TOKEN` in `.env` for private/gated models.\n"
-                "- If provider = **openai**, make sure `OPENAI_API_KEY` is set."
+                "LLM provider not configured correctly.\n\n"
+                "- For OpenRouter/OpenAI: set OPENAI_API_KEY\n"
+                "- For HuggingFace: set HF_TOKEN\n"
             )
 
         try:
-            # Preferred: role-based messages
             messages = [
                 ("system", system_prompt),
                 ("user", user_prompt),
             ]
-            resp = llm.invoke(messages)
+            response = llm.invoke(messages)
         except TypeError:
-            # Fallback if the model doesn't support (role, content) tuples
-            combined_prompt = system_prompt + "\n\n" + user_prompt
-            try:
-                resp = llm.invoke(combined_prompt)
-            except Exception as e:
-                return f"[LLM error] {e}"
+            # Fallback for non-chat models
+            prompt = f"{system_prompt}\n\n{user_prompt}"
+            response = llm.invoke(prompt)
         except Exception as e:
-            return f"[LLM error] {e}"
+            return f"[LLM ERROR] {e}"
 
-        if hasattr(resp, "content"):
-            return resp.content
-        return str(resp)
+        if hasattr(response, "content"):
+            return response.content
+
+        return str(response)

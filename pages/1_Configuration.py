@@ -1,7 +1,6 @@
-# ======================================================================
 # pages/1_Configuration.py
 # Global configuration for the Agentic RAG app (OpenAI + HuggingFace)
-# ======================================================================
+
 import streamlit as st
 
 from backend.config import RAGConfig
@@ -13,7 +12,7 @@ def get_config() -> RAGConfig:
     return st.session_state.config
 
 
-st.title("Agent & RAG Configuration")
+st.title("Settings")
 
 config = get_config()
 
@@ -182,13 +181,12 @@ st.subheader("Agentic RAG Reasoning Mode (per agent)")
 
 config.agentic_mode = st.radio(
     "Agentic mode",
-    options=["standard_rag", "react", "hybrid_legal"],
-    index=["standard_rag", "react", "hybrid_legal"].index(config.agentic_mode)
-    if config.agentic_mode in ["standard_rag", "react", "hybrid_legal"]
+    options=["standard_rag", "hybrid_legal"],
+    index=["standard_rag", "hybrid_legal"].index(config.agentic_mode)
+    if config.agentic_mode in ["standard_rag", "hybrid_legal"]
     else 0,
     help=(
         "- standard_rag: classic RAG.\n"
-        "- react: agentic reasoning (Thought / Action / Observation).\n"
         "- hybrid_legal: legal metadata extraction (Succession/Divorce + cost, "
         "duration, civil codes, etc.) + metadata-aware vector search."
     ),

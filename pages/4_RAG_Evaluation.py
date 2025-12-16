@@ -155,12 +155,13 @@ def get_ragas_models():
 # ---------------------------------------------------------------------
 # Streamlit UI
 # ---------------------------------------------------------------------
-st.title("📊 RAG Evaluation (Ragas)")
+st.title("RAG Evaluation (Ragas)")
 
 config = get_config()
 
 st.write("Evaluate your RAG chatbot using Ragas metrics based on `chat_sessions.json`.")
 
+# TO DELETE LATER
 # ---- Metric help / explanations ----
 with st.expander("ℹ️ What do these metrics mean?"):
     st.write(

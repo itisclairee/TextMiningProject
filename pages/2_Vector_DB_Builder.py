@@ -48,7 +48,7 @@ def cached_get_embedding_model(config: RAGConfig):
 
 # ---------- UI ----------
 
-st.title("📚 Vector DB Builder (LangChain + FAISS)")
+st.title("Vector DB Builder (LangChain + FAISS)")
 
 config = get_config()
 

@@ -1,3 +1,4 @@
+# backend/document_loader.py
 import json
 from pathlib import Path
 from typing import Any, List
@@ -5,8 +6,7 @@ from typing import Any, List
 from langchain_core.documents import Document
 
 # Role of this module:
-#This is the ingestion layer: it converts your raw JSON legal cases into 
-# LangChain Documents that can then be embedded and stored.
+#it converts your raw JSON legal cases into LangChain Documents that can then be embedded and stored.
 # Used mainly by vector_store.py and the Vector DB Builder page.
 
 def _extract_docs_from_json_object(obj: Any, source: str) -> List[Document]:

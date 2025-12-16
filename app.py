@@ -8,30 +8,23 @@ load_dotenv()
 
 st.set_page_config(
     page_title="Agentic RAG Playground (LangChain)",
-    page_icon="🧠",
     layout="wide",
 )
 
-st.title("🧠 Agentic RAG Playground (LangChain)")
+st.title("Agentic RAG Playground (LangChain)")
 
-if os.getenv("OPENAI_API_KEY"):
-    st.caption("🔑 OPENAI_API_KEY loaded from .env")
-else:
-    st.warning(
-        "OPENAI_API_KEY not found in environment. "
-        "Set it in your .env file if you want to use OpenAI."
-    )
 
 st.markdown(
     """
-Welcome!  
+    Welcome!
 
-Use the sidebar to navigate:
+    Use the sidebar to explore the app:
 
-1. **Configuration** – define LLM, embedding model, JSON data folders, and agentic RAG options.  
-2. **Vector DB Builder** – load your JSON data and create the FAISS vector database (via LangChain).  
-3. **Chatbot Q&A** – talk with your agentic RAG chatbot.
-"""
+    1. **Settings** – Set up your LLM provider and model, choose an embedding model, specify JSON corpus folders, and configure the agentic RAG behavior.  
+    2. **Vector DB Builder** – Import your JSON data and build the FAISS vector databases, ready for retrieval with LangChain.  
+    3. **Chatbot Q&A** – Interact with your intelligent RAG chatbot, powered by either single-agent, multi-agent, or hybrid legal pipelines.
+    """
 )
+st.info("Select a page from the sidebar to get started.")
 
-st.info("➡️ Select a page from the sidebar to get started.")
+
