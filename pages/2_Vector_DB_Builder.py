@@ -190,3 +190,34 @@ with st.expander("Advanced: cache management"):
         clear_vector_store_cache(current_name)
 
         st.success("Caches cleared. The next build will reload everything from disk.")
+
+
+
+
+# CSS personalizzato
+st.markdown(
+    """
+    <style>
+    .st-emotion-cache-pk3c77 h1, 
+    .st-emotion-cache-pk3c77 h2, 
+    .st-emotion-cache-pk3c77 h3, 
+    .st-emotion-cache-pk3c77 h4, 
+    .st-emotion-cache-pk3c77 h5, 
+    .st-emotion-cache-pk3c77 h6 {
+        font-family: "Source Sans", sans-serif;
+        line-height: 1.2;
+        margin: 0px;
+        color: inherit;
+        font-family: Helvetica;
+    }
+    p {
+        font-family: Helvetica;
+    }
+    li {
+        font-family: Helvetica !important;
+    }
+  
+    </style>
+    """,
+    unsafe_allow_html=True
+)        

@@ -65,7 +65,7 @@ def append_chat_to_db(history: List[Dict[str, Any]]) -> None:
 # -------------------------------
 # Streamlit UI
 # -------------------------------
-st.title("Agentic / Hybrid RAG Chatbot")
+st.title("RAG Chatbot (Agentic - Hybrid)")
 
 config = get_config()
 
@@ -74,13 +74,13 @@ if "chat_history" not in st.session_state:
 
 col_top1, col_top2, col_top3 = st.columns([1, 1, 2])
 with col_top1:
-    if st.button("🆕 New chat (save current)"):
+    if st.button("New Chat"):
         append_chat_to_db(st.session_state.chat_history)
         st.session_state.chat_history = []
         st.success("Current chat saved. Started a new chat.")
 
 with col_top2:
-    if st.button("🗑 Clear current chat"):
+    if st.button("Clear"):
         st.session_state.chat_history = []
         st.info("Chat cleared (not saved).")
 
@@ -193,18 +193,7 @@ if user_input:
 st.markdown("""
 <style>
 /* Badge dell'utente */
-div[role="listitem"] > div > div:first-child {
-    background-color: lightblue !important;
-    color: white !important;
-    border-radius: 0.5rem !important;
-}
 
-/* Badge dell'assistente */
-div[role="listitem"] > div > div:last-child {
-    background-color: green !important;
-    color: white !important;
-    border-radius: 0.5rem !important;
-}
             #agentic-hybrid-rag-chatbot {
 position: fixed!important;
 background: white;
@@ -214,4 +203,46 @@ width: 100%;
 }
 </style>
             
+            
 """, unsafe_allow_html=True)
+
+
+
+# CSS personalizzato
+st.markdown(
+    """
+    <style>
+    .st-emotion-cache-pk3c77 h1, 
+    .st-emotion-cache-pk3c77 h2, 
+    .st-emotion-cache-pk3c77 h3, 
+    .st-emotion-cache-pk3c77 h4, 
+    .st-emotion-cache-pk3c77 h5, 
+    .st-emotion-cache-pk3c77 h6 {
+        font-family: "Source Sans", sans-serif;
+        line-height: 1.2;
+        margin: 0px;
+        color: inherit;
+        font-family: Helvetica;
+    }
+    p {
+        font-family: Helvetica;
+    }
+    li {
+        font-family: Helvetica !important;
+    }
+    .st-emotion-cache-23r7bk {
+        background-color: lightblue !important;
+        color: white !important;
+        border-radius: 0.5rem !important;
+    }
+
+    /* Badge dell'assistente */
+    div[role="listitem"] > div > div:last-child {
+        background-color: green !important;
+        color: white !important;
+        border-radius: 0.5rem !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)

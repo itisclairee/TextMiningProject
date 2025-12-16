@@ -17,7 +17,7 @@ st.title("Settings")
 config = get_config()
 
 # ---------------- LLM SETTINGS ----------------
-st.subheader("LLM Settings")
+st.subheader("LLM")
 
 col1, col2 = st.columns(2)
 
@@ -46,7 +46,7 @@ with col2:
     )
 
 # ---------------- EMBEDDING SETTINGS ----------------
-st.subheader("Embedding Settings")
+st.subheader("Embedding")
 
 col3, col4 = st.columns(2)
 
@@ -75,7 +75,7 @@ with col4:
     )
 
 # ---------------- DATA FOLDERS ----------------
-st.subheader("Data Folders (JSON content + metadata)")
+st.subheader("Data Folders (JSON & Metadata)")
 
 # Input for new folder path
 new_folder = st.text_input(
@@ -88,7 +88,7 @@ cols_add = st.columns([1, 1, 2])
 
 with cols_add[0]:
     # Add folder only when the button is clicked
-    if st.button("➕ Add folder") and new_folder:
+    if st.button("Add") and new_folder:
         if new_folder not in config.json_folders:
             config.json_folders.append(new_folder)
             st.session_state.config = config
@@ -98,14 +98,14 @@ with cols_add[0]:
 
 with cols_add[1]:
     # Remove all folders at once
-    if st.button("🧹 Clear folders"):
+    if st.button("Clear"):
         config.json_folders = []
         st.session_state.config = config
         st.session_state._rerun = st.session_state.get("_rerun", 0) + 1
 
 # Show list of added folders
 if config.json_folders:
-    st.write(f"Current JSON folders ({len(config.json_folders)}):")
+    st.write(f"Current JSON paths ({len(config.json_folders)}):")
 
     for folder in config.json_folders.copy():
         colA, colB = st.columns([5, 1])
@@ -207,8 +207,38 @@ config.use_multiagent = st.checkbox(
 )
 
 # ---------------- SAVE ----------------
-if st.button("💾 Save configuration"):
+if st.button("Save"):
     st.session_state.config = config
     st.success("Configuration saved in session.")
 
 st.caption("Next: go to **Vector DB Builder** to create the FAISS vector store(s).")
+
+
+
+# CSS personalizzato
+st.markdown(
+    """
+    <style>
+    .st-emotion-cache-pk3c77 h1, 
+    .st-emotion-cache-pk3c77 h2, 
+    .st-emotion-cache-pk3c77 h3, 
+    .st-emotion-cache-pk3c77 h4, 
+    .st-emotion-cache-pk3c77 h5, 
+    .st-emotion-cache-pk3c77 h6 {
+        font-family: "Source Sans", sans-serif;
+        line-height: 1.2;
+        margin: 0px;
+        color: inherit;
+        font-family: Helvetica;
+    }
+    p {
+        font-family: Helvetica;
+    }
+    li {
+        font-family: Helvetica !important;
+    }
+  
+    </style>
+    """,
+    unsafe_allow_html=True
+)

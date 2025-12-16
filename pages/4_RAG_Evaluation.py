@@ -21,6 +21,41 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from backend.config import RAGConfig
 
+
+# CSS personalizzato
+st.markdown(
+    """
+    <style>
+    .st-emotion-cache-pk3c77 h1, 
+    .st-emotion-cache-pk3c77 h2, 
+    .st-emotion-cache-pk3c77 h3, 
+    .st-emotion-cache-pk3c77 h4, 
+    .st-emotion-cache-pk3c77 h5, 
+    .st-emotion-cache-pk3c77 h6 {
+        font-family: "Source Sans", sans-serif;
+        line-height: 1.2;
+        margin: 0px;
+        color: inherit;
+        font-family: Helvetica;
+    }
+    p {
+        font-family: Helvetica;
+    }
+    li {
+        font-family: Helvetica !important;
+    }
+    h1{
+    font-family: Helvetica!important;
+    }
+
+    #rag-evaluation-with-ragas {
+font-family: Helvetica;
+}
+    </style>
+    """,
+    unsafe_allow_html=True
+)        
+
 CHAT_DB_PATH = Path("chat_sessions.json")
 
 
@@ -155,46 +190,20 @@ def get_ragas_models():
 # ---------------------------------------------------------------------
 # Streamlit UI
 # ---------------------------------------------------------------------
-st.title("RAG Evaluation (Ragas)")
+st.title("RAG Evaluation with Ragas")
 
 config = get_config()
 
 st.write("Evaluate your RAG chatbot using Ragas metrics based on `chat_sessions.json`.")
 
-# TO DELETE LATER
-# ---- Metric help / explanations ----
-with st.expander("ℹ️ What do these metrics mean?"):
-    st.write(
-        "- **context_precision**: Of all the retrieved context, how much is actually relevant to the answer? "
-        "High precision = little noise in retrieved chunks."
-    )
-    st.write(
-        "- **context_recall**: Of all the information needed to answer, how much is present in the retrieved "
-        "context? High recall = the retriever brought in most of what was needed."
-    )
-    st.write(
-        "- **faithfulness**: To what extent is the answer supported by the retrieved context (and not hallucinated)? "
-        "High faithfulness = the answer sticks closely to the documents."
-    )
-    st.write(
-        "- **answer_relevancy**: How well does the answer address the question itself (regardless of ground truth)? "
-        "High relevancy = the answer is on-topic for the user query."
-    )
-    st.write(
-        "- **answer_correctness**: How close is the answer to the reference `ground_truth` you provide? "
-        "High correctness = the model’s answer matches your gold label."
-    )
-    st.caption(
-        "All metrics are in [0, 1]. Higher is better. Use them to compare different RAG settings and pipelines."
-    )
+
 
 # Load chat DB
 chat_db = load_chat_db()
 if not chat_db:
     st.warning(
         f"No chat sessions found in `{CHAT_DB_PATH}`. "
-        "Go to the Chatbot Q&A page, have some conversations, "
-        "and make sure you save chats before evaluating."
+        
     )
     st.stop()
 
@@ -372,3 +381,6 @@ if st.button("Run RAGAS evaluation"):
         for col in numeric_metric_cols:
             mean_score = float(df_scores[col].mean())
             st.write(f"{col}: {mean_score:.3f}")
+
+
+

@@ -1,5 +1,4 @@
 import os
-
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -11,8 +10,35 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("Agentic RAG Playground (LangChain)")
+# CSS personalizzato
+st.markdown(
+    """
+    <style>
+    .st-emotion-cache-pk3c77 h1, 
+    .st-emotion-cache-pk3c77 h2, 
+    .st-emotion-cache-pk3c77 h3, 
+    .st-emotion-cache-pk3c77 h4, 
+    .st-emotion-cache-pk3c77 h5, 
+    .st-emotion-cache-pk3c77 h6 {
+        font-family: "Source Sans", sans-serif;
+        line-height: 1.2;
+        margin: 0px;
+        color: inherit;
+        font-family: Helvetica;
+    }
+    p {
+        font-family: Helvetica;
+    }
+    li {
+        font-family: Helvetica !important;
+    }
+  
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
+st.title("Smart Agentic RAG  HUB")
 
 st.markdown(
     """
@@ -25,6 +51,3 @@ st.markdown(
     3. **Chatbot Q&A** – Interact with your intelligent RAG chatbot, powered by either single-agent, multi-agent, or hybrid legal pipelines.
     """
 )
-st.info("Select a page from the sidebar to get started.")
-
-
