@@ -53,25 +53,17 @@ col3, col4 = st.columns(2)
 with col3:
     config.embedding_provider = st.selectbox(
         "Embedding Provider",
-        options=["huggingface", "openai"],
-        index=["huggingface", "openai"].index(config.embedding_provider)
-        if config.embedding_provider in ["huggingface", "openai"]
-        else 0,
-        help=(
-            "huggingface → `HuggingFaceEmbeddings` (any HF model or local path).\n"
-            "openai → `OpenAIEmbeddings` (e.g. `text-embedding-3-small`)."
-        ),
+        options=["huggingface"],
+        index=["huggingface"].index(config.embedding_provider)
+        if config.embedding_provider in ["huggingface"]
+        else 0
     )
 
 with col4:
     config.embedding_model_name = st.text_input(
         "Embedding Model Name or Path",
         value=config.embedding_model_name,
-        help=(
-            "For Hugging Face: e.g. `all-MiniLM-L6-v2`, `sentence-transformers/all-mpnet-base-v2`, "
-            "or a local path.\n"
-            "For OpenAI: e.g. `text-embedding-3-small`."
-        ),
+        
     )
 
 # ---------------- DATA FOLDERS ----------------
@@ -155,27 +147,13 @@ else:
 # ---------------- RETRIEVAL SETTINGS ----------------
 st.subheader("Retrieval & Post-processing")
 
-col_r1, col_r2 = st.columns(2)
-
-with col_r1:
-    config.top_k = st.slider(
-        "Top-K documents after filtering",
-        min_value=1,
-        max_value=20,
-        value=config.top_k,
-        help="Number of documents kept after similarity-based filtering.",
-    )
-
-with col_r2:
-    config.use_rerank = st.checkbox(
-        "Use extra post-retrieval reranker (placeholder)",
-        value=config.use_rerank,
-        help=(
-            "Reserved flag for plugging in an advanced reranker later.\n"
-            "Current pipeline already does cosine-similarity filtering and reranking."
-        ),
-    )
-
+config.top_k = st.slider(
+    "Top-K documents after filtering",
+    min_value=1,
+    max_value=20,
+    value=config.top_k,
+    help="Number of documents kept after similarity-based filtering.",
+)
 # ---------------- AGENTIC MODE (within each RAG agent) ----------------
 st.subheader("Agentic RAG Reasoning Mode")
 
